@@ -16,7 +16,7 @@ import lombok.ToString;
 @Entity
 @DynamicInsert
 @Table(name="Users")
-public class Users {
+public class User {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private int id;

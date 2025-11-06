@@ -12,24 +12,21 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.websocket.chatting.dto.Message;
 import com.websocket.chatting.dto.MessageWithUsername;
-import com.websocket.chatting.service.ChatService;
+import com.websocket.chatting.service.MessageService;
 
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 
-@CrossOrigin(origins = "http://localhost:3000")
 @RestController
 @Slf4j
 public class ChatController {
 	@Autowired
-    private ChatService chatService;
+    private MessageService messageService;
 	
 	private final SimpMessagingTemplate messagingTemplate;
 	// 채팅방별 접속자 관리
@@ -59,7 +56,7 @@ public class ChatController {
             message.setContent(message.getFromId() + "님이 퇴장했습니다.");
             
         } else if (message.getType() == Message.MessageType.CHAT) {
-        	chatService.addMessage(newMessage);
+        	messageService.addMessage(newMessage);
         }
 		
 		// 직접 목적지를 지정해서 전송
@@ -80,7 +77,7 @@ public class ChatController {
 	public List<MessageWithUsername> getChatHistory(@RequestBody Map<String, Object> payload) {
 		int chatroomId = Integer.parseInt(payload.get("roomId").toString());
 		String userId = payload.get("userId").toString();
-		List<MessageWithUsername> messages = chatService.getMessages(chatroomId, userId);
+		List<MessageWithUsername> messages = messageService.getMessages(chatroomId, userId);
 		
 		messagingTemplate.convertAndSend("/sub/messages/" + chatroomId, messages);
 		
