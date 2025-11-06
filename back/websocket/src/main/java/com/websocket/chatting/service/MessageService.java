@@ -7,11 +7,12 @@ import com.websocket.chatting.dao.MessageDAO;
 import com.websocket.chatting.dto.Message;
 
 @Service
-public class ChatService {
+public class MessageService {
 	@Autowired
 	MessageDAO dao;
 	
 	public void addMessage(Message message) {
 		dao.insertMessage(message);
 	}
+
 }

@@ -14,7 +14,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.websocket.chatting.dto.Message;
-import com.websocket.chatting.service.ChatService;
+import com.websocket.chatting.service.MessageService;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -22,7 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ChatController {
 	@Autowired
-    private ChatService chatService;
+    private MessageService messageService;
 	
 	private final SimpMessagingTemplate messagingTemplate;
 	// 채팅방별 접속자 관리
@@ -40,7 +40,7 @@ public class ChatController {
 		Message newMessage = new Message(message.getChatRoomId(), message.getFromId(),
 										message.getContent(), message.getIsRead());	
 		System.out.println(newMessage.toString());
-		chatService.addMessage(newMessage);
+		messageService.addMessage(newMessage);
 		
 		if (message.getType() == Message.MessageType.JOIN) {
             roomUsers.computeIfAbsent(roomId, k -> new HashSet<>()).add(message.getFromId());

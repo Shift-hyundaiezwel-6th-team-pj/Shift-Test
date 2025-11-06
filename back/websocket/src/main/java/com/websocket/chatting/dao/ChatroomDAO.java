@@ -1,19 +1,20 @@
 package com.websocket.chatting.dao;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.websocket.chatting.dto.Message;
+import com.websocket.chatting.dto.Chatroom;
 import com.websocket.chatting.repository.ChatroomRepository;
-import com.websocket.chatting.repository.MessageRepository;
 
 @Service
-public class MessageDAO {
+public class ChatroomDAO {
 
 	@Autowired
-	MessageRepository messageRepo;
+	ChatroomRepository chatroomRepo;
 	
-	public void insertMessage (Message message) {
-		messageRepo.save(message);
+	public List<Chatroom> getUserChatrooms (int user){
+		return chatroomRepo.findByFromId(user);
 	}
 }
