@@ -6,44 +6,51 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.websocket.chatting.model.ChatMessage;
+import com.websocket.chatting.dto.Message;
+import com.websocket.chatting.service.ChatService;
 
 import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @Slf4j
 public class ChatController {
+	@Autowired
+    private ChatService chatService;
+	
 	private final SimpMessagingTemplate messagingTemplate;
 	// 채팅방별 접속자 관리
-    private final Map<String, Set<String>> roomUsers = new HashMap<>();
+    private final Map<String, Set<Integer>> roomUsers = new HashMap<>();
     
     public ChatController(SimpMessagingTemplate messagingTemplate) {
         this.messagingTemplate = messagingTemplate;
     }
 
-//    private ChatService chatService;
-
 //    @MessageMapping("/send") 
 //    @SendTo("/sub/messages")
 	@MessageMapping("/send/{roomId}")
-    public ChatMessage sendMessage(@DestinationVariable String roomId, @Payload ChatMessage message) {
+    public Message sendMessage(@DestinationVariable String roomId, @Payload Message message) {
 		log.info("Room [{}] 메시지: {}", roomId, message);
+		Message newMessage = new Message(message.getChatRoomId(), message.getFromId(),
+										message.getContent(), message.getIsRead());	
+		System.out.println(newMessage.toString());
+		chatService.addMessage(newMessage);
 		
-		if (message.getType() == ChatMessage.MessageType.JOIN) {
-            roomUsers.computeIfAbsent(roomId, k -> new HashSet<>()).add(message.getSender());
+		if (message.getType() == Message.MessageType.JOIN) {
+            roomUsers.computeIfAbsent(roomId, k -> new HashSet<>()).add(message.getFromId());
             message.setContent("님이 입장하셨습니다");
-        } else if (message.getType() == ChatMessage.MessageType.LEAVE) {
-            Set<String> users = roomUsers.get(roomId);
+        } else if (message.getType() == Message.MessageType.LEAVE) {
+            Set<Integer> users = roomUsers.get(roomId);
             if (users != null) {
-                users.remove(message.getSender());
+                users.remove(message.getFromId());
             }
-            message.setContent(message.getSender() + "님이 퇴장했습니다.");
+            message.setContent(message.getFromId() + "님이 퇴장했습니다.");
         }
 		
 		// 직접 목적지를 지정해서 전송
@@ -53,7 +60,7 @@ public class ChatController {
         messagingTemplate.convertAndSend("/sub/messages/" + roomId, message);
         
         // 접속자 목록
-        Set<String> users = roomUsers.getOrDefault(roomId, Collections.emptySet());
+        Set<Integer> users = roomUsers.getOrDefault(roomId, Collections.emptySet());
         messagingTemplate.convertAndSend("/sub/users/" + roomId, users);
         
         return message;
