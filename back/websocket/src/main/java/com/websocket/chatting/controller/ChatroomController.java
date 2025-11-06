@@ -22,7 +22,6 @@ public class ChatroomController {
 	
 	@GetMapping("chatrooms/user/{userId}")
 	public List<Chatroom> getUserChatroomList (@PathVariable int userId){
-		System.out.println("************************"+userId);
 		List<Chatroom> chatrooms = chatroomService.getUserChatrooms(userId);
 		return chatrooms;
 	}

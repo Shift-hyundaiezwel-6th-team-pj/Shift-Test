@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"; // React 훅 불러오기
 import "./App.css"; // CSS 스타일링
 import SockJS from "sockjs-client"; // SockJS 클라이언트
 import { Client } from "@stomp/stompjs"; // STOMP 클라이언트
+import axios from "axios";
 
 function App() {
   // STOMP 클라이언트 상태
@@ -15,7 +16,7 @@ function App() {
   // 확정된 닉네임
   const [nickname, setNickname] = useState("");
   // 현재 선택한 방
-  const [roomId, setRoomId] = useState("room1");
+  const [roomId, setRoomId] = useState(1);
   // 현재 방 접속자 목록
   const [users, setUsers] = useState([]);
 
@@ -44,12 +45,18 @@ function App() {
     if (!stompClient || !stompClient.connected) return; // 연결 체크
     if (!nickname) return; // 닉네임 확정 전에는 실행하지 않음
 
-    let chatSub, userSub;
+    let chatSub, chatHistory, userSub;
 
     // 새 채팅방 구독
     chatSub = stompClient.subscribe(`/sub/messages/${roomId}`, (message) => {
       const received = JSON.parse(message.body);
       setReceivedMessages((prev) => [...prev, received]);
+    });
+
+    // 새 채팅방 구독
+    chatHistory = stompClient.subscribe(`/sub/chatHistory/${roomId}`, (messages) => {
+      const received = JSON.parse(messages.body);
+      setReceivedMessages((prev) => [...prev, ...received]);
     });
 
     // 채팅방에 참여한 구독자 리스트에 추가됨
@@ -68,6 +75,7 @@ function App() {
     // 언마운트 또는 roomId 변경 시 퇴장 메시지 전송 및 구독 해제
     return () => {
       chatSub && chatSub.unsubscribe();
+      chatHistory && chatHistory.unsubscribe();
       userSub && userSub.unsubscribe();
 
       const leaveMessage = { type: "LEAVE", sender: nickname, content: "" };
@@ -100,6 +108,25 @@ function App() {
     }
   };
 
+  // 채팅 기록 불러오기
+  const getChattingHistory = async (targetRoomId) => {
+    setReceivedMessages([]);
+
+    try {
+      const chatroomData = {
+        roomId:targetRoomId,
+        userId:nicknameInput
+      };
+      console.log("요청 데이터:", chatroomData); 
+      const response = await axios.post("http://localhost:8080/chat_history", chatroomData);
+      console.log("응답 데이터:", response.data);
+      setReceivedMessages(response.data);
+
+    } catch (error) {
+      alert("채팅기록을 불러올 수 없습니다.");
+    }
+  }
+
   return (
     <div>
       <h1>💬 멀티룸 채팅</h1>
@@ -113,7 +140,10 @@ function App() {
             value={nicknameInput}
             onChange={(e) => setNicknameInput(e.target.value)}
           />
-          <button onClick={confirmNickname}>입장</button>
+          <button onClick={() => {
+            confirmNickname();
+            getChattingHistory(roomId);
+          }}>입장</button>
         </div>
       )}
 
@@ -126,13 +156,14 @@ function App() {
             <select
               value={roomId}
               onChange={(e) => {
-                setRoomId(e.target.value); // 방 변경
-                setReceivedMessages([]);   // 메시지 초기화
+                const newRoomId = e.target.value;
+                setRoomId(newRoomId); // 방 변경
+                getChattingHistory(newRoomId);   // 채팅 내역 불러오기
               }}
             >
-              <option value="room1">Room 1</option>
-              <option value="room2">Room 2</option>
-              <option value="room3">Room 3</option>
+              <option value={1}>Room 1</option>
+              <option value={2}>Room 2</option>
+              <option value={3}>Room 3</option>
             </select>
           </div>
 
