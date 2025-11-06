@@ -48,4 +48,5 @@ public class Message {
         this.content = content;
         this.isRead = isRead;
     }
+    
 }

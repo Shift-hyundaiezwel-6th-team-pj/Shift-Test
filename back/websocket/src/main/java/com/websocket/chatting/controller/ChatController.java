@@ -3,6 +3,7 @@ package com.websocket.chatting.controller;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -11,9 +12,12 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.websocket.chatting.dto.Message;
+import com.websocket.chatting.dto.MessageWithUsername;
 import com.websocket.chatting.service.MessageService;
 
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +44,6 @@ public class ChatController {
 		Message newMessage = new Message(message.getChatRoomId(), message.getFromId(),
 										message.getContent(), message.getIsRead());	
 		System.out.println(newMessage.toString());
-		messageService.addMessage(newMessage);
 		
 		if (message.getType() == Message.MessageType.JOIN) {
             roomUsers.computeIfAbsent(roomId, k -> new HashSet<>()).add(message.getFromId());
@@ -51,6 +54,9 @@ public class ChatController {
                 users.remove(message.getFromId());
             }
             message.setContent(message.getFromId() + "님이 퇴장했습니다.");
+            
+        } else if (message.getType() == Message.MessageType.CHAT) {
+        	messageService.addMessage(newMessage);
         }
 		
 		// 직접 목적지를 지정해서 전송
@@ -65,4 +71,17 @@ public class ChatController {
         
         return message;
     }
+	
+	// 채팅기록 불러오기
+	@PostMapping("/chat_history")
+	public List<MessageWithUsername> getChatHistory(@RequestBody Map<String, Object> payload) {
+		int chatroomId = Integer.parseInt(payload.get("roomId").toString());
+		String userId = payload.get("userId").toString();
+		List<MessageWithUsername> messages = messageService.getMessages(chatroomId, userId);
+		
+		messagingTemplate.convertAndSend("/sub/messages/" + chatroomId, messages);
+		
+		return messages;
+	}
+	
 }
