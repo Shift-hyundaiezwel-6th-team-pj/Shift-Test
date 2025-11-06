@@ -3,7 +3,7 @@ package com.websocket.chatting.dao;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.websocket.chatting.model.Message;
+import com.websocket.chatting.dto.Message;
 import com.websocket.chatting.repository.MessageRepository;
 
 @Service
