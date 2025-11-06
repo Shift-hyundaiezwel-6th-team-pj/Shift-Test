@@ -10,14 +10,13 @@ import com.websocket.chatting.dto.Message;
 import com.websocket.chatting.dto.MessageWithUsername;
 
 @Service
-public class ChatService {
+public class MessageService {
 	@Autowired
 	MessageDAO dao;
 	
 	public void addMessage(Message message) {
 		dao.insertMessage(message);
 	}
-	
 	public List<MessageWithUsername> getMessages(int chatroomId, String userId) {
 		return dao.getMessages(chatroomId, userId);
 	}
