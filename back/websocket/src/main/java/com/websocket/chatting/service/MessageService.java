@@ -17,7 +17,16 @@ public class MessageService {
 	public void addMessage(Message message) {
 		dao.insertMessage(message);
 	}
-	public List<MessageWithUsername> getMessages(int chatroomId, String userId) {
-		return dao.getMessages(chatroomId, userId);
+	
+	public List<Message> getAllMessages(int chatroomId) {
+		return dao.getAllMessages(chatroomId);
+	}
+	
+	public List<Message> getMessagesBetweenUsers(int fromId, int toId){
+		return dao.getMessagesBetweenUsers(fromId, toId);
+	}
+	
+	public void saveAllMessages (List<Message> messages) {
+		dao.saveAllMessages(messages);
 	}
 }
