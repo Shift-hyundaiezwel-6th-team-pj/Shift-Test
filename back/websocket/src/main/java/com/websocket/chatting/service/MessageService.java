@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 
 import com.websocket.chatting.dao.MessageDAO;
 import com.websocket.chatting.dto.Message;
-import com.websocket.chatting.dto.MessageWithUsername;
 
 @Service
 public class MessageService {
