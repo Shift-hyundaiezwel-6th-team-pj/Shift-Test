@@ -9,6 +9,10 @@ function App() {
   const [stompClient, setStompClient] = useState(null);
   // 현재 방에서 수신한 채팅 메시지 배열
   const [receivedMessages, setReceivedMessages] = useState([]);
+  // 사용자가 참여한 채팅방 목록
+  const [rooms, setRooms] = useState([]);
+  // 사용자 정보
+  const [userInfo, setUserInfo] = useState();
   // 입력 중인 채팅 메시지
   const [inputMessage, setInputMessage] = useState("");
   // 닉네임 입력 상태 (아직 확정되지 않은 값)
@@ -17,11 +21,18 @@ function App() {
   const [nickname, setNickname] = useState("");
   // 현재 선택한 방
   const [roomId, setRoomId] = useState(1);
+  // fromId
+  const [fromId, setFromId] = useState("");
+  // toId
+  const [toId, setToId] = useState("");
   // 현재 방 접속자 목록
   const [users, setUsers] = useState([]);
+  // 에러 표시
+  const [error, setError] = useState("");
 
   // STOMP 클라이언트 초기화 (앱 시작 시 한 번만)
   useEffect(() => {
+    if (!userInfo) return;
     const socket = new SockJS("http://localhost:8080/ws"); // SockJS 소켓 생성
 
     const client = new Client({
@@ -38,7 +49,31 @@ function App() {
     // 클린업 함수
     // 앱 종료 시 클라이언트 비활성화
     return () => client.deactivate();
-  }, []);
+  }, [userInfo]);
+
+  const checkUserInfo = async () => {
+    if (!nicknameInput.trim()) return;
+
+    try {
+      const userInfo = await axios.get(`http://localhost:8080/users/${nicknameInput}`);
+      setNickname(nicknameInput);
+      setUserInfo(userInfo.data)
+      setError("");
+    } catch (err) {
+      if (err.userInfo && err.userInfo.status === 404) {
+        setError("존재하지 않는 사용자입니다.");
+      } else {
+        setError("사용자 PK를 입력하세요.");
+      }
+    }
+
+    try {
+      const userChatRoomInfo = await axios.get(`http://localhost:8080/chatrooms/user/${nicknameInput}`);
+      setRooms(userChatRoomInfo.data);
+    } catch (err) {
+      setError("오류 발생")
+    }
+  };
 
   // roomId 또는 닉네임 변경 시 입장/퇴장 + 구독 처리
   useEffect(() => {
@@ -92,7 +127,7 @@ function App() {
   const sendMessage = () => {
     if (!stompClient || !stompClient.connected) return; // 연결 체크
     if (inputMessage.trim()) {
-      const msg = { type: "CHAT", sender: nickname, content: inputMessage };
+      const msg = { type: "CHAT", chatRoomId : roomId, fromId : fromId, toId : toId, sender: nickname, content: inputMessage, isRead : 'N'};
       stompClient.publish({
         destination: `/pub/send/${roomId}`,
         body: JSON.stringify(msg),
@@ -102,30 +137,54 @@ function App() {
   };
 
   // 닉네임 확정 버튼
-  const confirmNickname = () => {
-    if (nicknameInput.trim()) {
-      setNickname(nicknameInput); // 입력값 확정
-    }
-  };
+  // const confirmNickname = () => {
+  //   if (nicknameInput.trim()) {
+  //     setNickname(nicknameInput); // 입력값 확정
+  //   }
+  // };
 
   // 채팅 기록 불러오기
-  const getChattingHistory = async (targetRoomId) => {
+  const getChattingHistory = async (e) => {
+    const selected = e.target.selectedOptions[0]; // 현재 선택된 option
+    const roomId = selected.getAttribute("data-roomId");
+    const fromId = selected.getAttribute("data-fromid");
+    const toId = selected.getAttribute("data-toid");
+
+    setRoomId(roomId);
+    setFromId(fromId);
+    setToId(toId);
+
+    console.log("선택된 채팅방:", fromId, toId);
+
     setReceivedMessages([]);
 
     try {
       const chatroomData = {
-        roomId:targetRoomId,
-        userId:nicknameInput
+        roomId: roomId,
+        fromId:fromId,
+        toId:toId
       };
       console.log("요청 데이터:", chatroomData); 
-      const response = await axios.post("http://localhost:8080/chat_history", chatroomData);
+      const response = await axios.post("http://localhost:8080/chatroom/chat-history", chatroomData);
       console.log("응답 데이터:", response.data);
       setReceivedMessages(response.data);
 
     } catch (error) {
+      console.error("채팅기록 불러오기 실패:", error);
       alert("채팅기록을 불러올 수 없습니다.");
     }
   }
+
+  // const handleSelectChange = (e) => {
+  //   const selected = e.target.selectedOptions[0]; // 현재 선택된 option
+  //   const fromId = selected.getAttribute("data-fromid");
+  //   const toId = selected.getAttribute("data-toid");
+
+  //   setFromId(fromId);
+  //   setToId(toId);
+
+  //   console.log("선택된 채팅방:", fromId, toId);
+  // };
 
   return (
     <div>
@@ -136,37 +195,76 @@ function App() {
         <div>
           <input
             type="text"
-            placeholder="닉네임 입력"
+            placeholder="User PK 입력"
             value={nicknameInput}
             onChange={(e) => setNicknameInput(e.target.value)}
           />
-          <button onClick={() => {
-            confirmNickname();
-            getChattingHistory(roomId);
-          }}>입장</button>
+          <button onClick={checkUserInfo}>입장</button>
+          {error && <p style={{ color: "red" }}>{error}</p>}
         </div>
+        // <div>
+        //   <input
+        //     type="text"
+        //     placeholder="닉네임 입력"
+        //     value={nicknameInput}
+        //     onChange={(e) => setNicknameInput(e.target.value)}
+        //   />
+        //   <button onClick={() => {
+        //     confirmNickname();
+        //     getChattingHistory(roomId);
+        //   }}>입장</button>
+        // </div>
       )}
 
       {/* 닉네임이 확정되면 채팅 UI 표시 */}
-      {nickname && (
+      {userInfo && (
         <>
+          <div>
+            <h4>사용자 정보</h4>
+            <p>PK : {userInfo.id}</p>
+            <p>ID : {userInfo.userId}</p>
+            <p>Name : {userInfo.name}</p>
+          </div>
           {/* 방 선택 */}
           <div>
             <label>방 선택: </label>
-            <select
+            <select onChange={getChattingHistory}>
+              <option value="">채팅방을 선택하세요</option>
+              {rooms.map((room) => (
+                <option
+                  key={room.chatRoomId}
+                  value={room.chatRoomId}
+                  data-fromid={room.fromId}
+                  data-toid={room.toId}
+                  data-roomid={room.id}
+                >
+                  {room.fromId}와 {room.toId}의 채팅방
+                </option>
+              ))}
+            </select>
+          </div>
+          {/* <div>
+            <label>방 선택: </label>
+            <div
               value={roomId}
               onChange={(e) => {
                 const newRoomId = e.target.value;
                 setRoomId(newRoomId); // 방 변경
+                // setReceivedMessages([]);   // 메시지 초기화
                 getChattingHistory(newRoomId);   // 채팅 내역 불러오기
               }}
             >
-              <option value={1}>Room 1</option>
-              <option value={2}>Room 2</option>
-              <option value={3}>Room 3</option>
-            </select>
-          </div>
+              {rooms.map((room) => (
+                <div key={room.chatRoomId}>
+                  <a href="#" value={room.id}>
+                    {room.id} : {room.fromId}와 {room.toId}의 채팅방
+                  </a>
+                  <br />
+                </div>
+              ))}
 
+              </div> 
+          </div> */}
           {/* 메시지 입력 */}
           <div>
             <input
@@ -182,7 +280,7 @@ function App() {
           <div>
             <p>현재 방 접속자 : &nbsp;
               {users.map((user, idx) => (
-                <span key={idx}>{user} &nbsp;</span>
+                <span key={idx}>{user.id} &nbsp;</span>
               ))}
             </p>
           </div>
@@ -191,8 +289,8 @@ function App() {
           <ul>
             {receivedMessages.map((msg, idx) => (
               <li key={idx}>
-                {msg.type === "CHAT" && <strong>{msg.sender} : {msg.content}</strong>}
-                {msg.type === "JOIN" && <em>{msg.sender} {msg.content}</em>}
+                {msg.content}
+                {msg.type === "JOIN" && <em>{msg.fromId} {msg.content}</em>}
                 {msg.type === "LEAVE" && <em>{msg.content}</em>}
               </li>
             ))}

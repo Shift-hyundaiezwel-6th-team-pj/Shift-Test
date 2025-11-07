@@ -11,26 +11,29 @@ import com.websocket.chatting.dto.MessageWithUsername;
 
 public interface MessageRepository extends JpaRepository<Message, Integer>{
 
-	@Query(   "SELECT new com.websocket.chatting.dto.MessageWithUsername( "
-			+ "       com.websocket.chatting.dto.MessageWithUsername$MessageType.CHAT, "
-			+ "       u.userId, "
-			+ "       m.content) "
-			+ "FROM Message m "
-			+ "JOIN User u "
-			+ "    ON m.fromId = u.id "
-			+ "JOIN Chatroom c "
-			+ "    ON m.chatRoomId = c.id "
-			+ "JOIN Chatroom base "
-			+ "    ON ( "
-			+ "         (c.fromId = base.fromId AND c.toId = base.toId) "
-			+ "      OR (c.fromId = base.toId   AND c.toId = base.fromId) "
-			+ "    ) "
-			+ "JOIN User me "
-			+ "    ON (me.userId = :userId) "
-			+ "WHERE base.id = :chatRoomId "
-			+ "  AND (c.fromId = me.id OR c.toId = me.id) "
-			+ "ORDER BY m.sendDate ASC, m.id ASC")
-	List<MessageWithUsername> getMessages(@Param("chatRoomId") int chatRoomId,
-										  @Param("userId") String userId);
-	
+//	@Query(   "SELECT new com.websocket.chatting.dto.MessageWithUsername( "
+//			+ "       com.websocket.chatting.dto.MessageWithUsername$MessageType.CHAT, "
+//			+ "       u.userId, "
+//			+ "       m.content) "
+//			+ "FROM Message m "
+//			+ "JOIN User u "
+//			+ "    ON m.fromId = u.id "
+//			+ "JOIN Chatroom c "
+//			+ "    ON m.chatRoomId = c.id "
+//			+ "JOIN Chatroom base "
+//			+ "    ON ( "
+//			+ "         (c.fromId = base.fromId AND c.toId = base.toId) "
+//			+ "      OR (c.fromId = base.toId   AND c.toId = base.fromId) "
+//			+ "    ) "
+//			+ "JOIN User me "
+//			+ "    ON (me.userId = :userId) "
+//			+ "WHERE base.id = :chatRoomId "
+//			+ "  AND (c.fromId = me.id OR c.toId = me.id) "
+//			+ "ORDER BY m.sendDate ASC, m.id ASC")
+    List<Message> findByChatRoomIdOrderBySendDateAsc(int chatRoomId);
+    @Query("SELECT m FROM Message m " +
+            "WHERE m.chatRoomId IN :chatroomIds " +
+            "ORDER BY m.id ASC")
+     List<Message> findMessagesByChatroomIds(@Param("chatroomIds") List<Integer> chatroomIds);
+
 }
