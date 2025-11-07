@@ -17,4 +17,8 @@ public class ChatroomDAO {
 	public List<Chatroom> getUserChatrooms (int user){
 		return chatroomRepo.findByFromId(user);
 	}
+	
+	public List<Integer> findChatroomIdsForUsers(int fromId, int toId) {
+		return chatroomRepo.findChatroomIdsForUsers(fromId, toId);
+	}
 }

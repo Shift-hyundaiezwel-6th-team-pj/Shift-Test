@@ -7,7 +7,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.websocket.chatting.dto.Message;
-import com.websocket.chatting.dto.MessageWithUsername;
 
 public interface MessageRepository extends JpaRepository<Message, Integer>{
 
