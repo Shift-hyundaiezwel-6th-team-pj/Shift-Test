@@ -29,6 +29,8 @@ function App() {
   const [users, setUsers] = useState([]);
   // 에러 표시
   const [error, setError] = useState("");
+  // 채팅내역 로딩 상태
+  const [isChatHistoryLoaded, setIsChatHistoryLoaded] = useState(false);
 
   // STOMP 클라이언트 초기화 (앱 시작 시 한 번만)
   useEffect(() => {
@@ -94,26 +96,24 @@ function App() {
       setUsers(userList);
     });
 
-    // 입장 메시지 전송
-    const joinMessage = { type: "JOIN", fromId: fromId, toId: toId, sender: nickname, content: "" };
-    stompClient.publish({
-      destination: `/pub/send/${roomId}`,
-      body: JSON.stringify(joinMessage),
-    });
-
-    // 입장 메세지가 전송된 후 채팅내역 불러옴
+    // 채팅방 입장 후 채팅내역 불러옴
     (async () => {
       try {
+        // 요청 데이터 구성
         const chatroomData = {
           roomId: roomId,
           fromId:fromId,
           toId:toId
         };
         console.log("요청 데이터:", chatroomData);
+
         const response = await axios.post("http://localhost:8080/chatroom/chat-history", chatroomData);
         console.log("응답 데이터:", response.data);
-        setReceivedMessages((prev) => [ ...response.data, ...prev ]);
 
+        // 채팅내역 세팅
+        setReceivedMessages((prev) => [ ...response.data, ...prev ]);
+        setIsChatHistoryLoaded(true);
+        
       } catch (error) {
         console.error("채팅기록 불러오기 실패:", error);
         alert("채팅기록을 불러올 수 없습니다.");
@@ -135,6 +135,20 @@ function App() {
       }
     };
   }, [roomId, nickname, stompClient]);
+
+  // 채팅내역 불러온 후 입장 메시지 전송
+  useEffect(() => {
+    if (!isChatHistoryLoaded) return;
+    if (!stompClient || !stompClient.connected) return;
+
+    const joinMessage = { type: "JOIN", fromId: fromId, toId: toId, sender: nickname, content: "" };
+    stompClient.publish({
+      destination: `/pub/send/${roomId}`,
+      body: JSON.stringify(joinMessage),
+    });
+
+    setIsChatHistoryLoaded(false);
+  }, [isChatHistoryLoaded]);
 
   // 채팅 메시지 전송
   const sendMessage = () => {
