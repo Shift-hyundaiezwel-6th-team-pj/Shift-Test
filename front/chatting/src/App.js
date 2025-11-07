@@ -101,6 +101,7 @@ function App() {
       body: JSON.stringify(joinMessage),
     });
 
+    // 입장 메세지가 전송된 후 채팅내역 불러옴
     (async () => {
       try {
         const chatroomData = {
@@ -155,6 +156,7 @@ function App() {
   //   }
   // };
 
+  /////////////////////////////////////////////////////// 더이상 안쓰는 함수
   // 채팅 기록 불러오기
   const getChattingHistory = async (e) => {
     const selected = e.target.selectedOptions[0]; // 현재 선택된 option
@@ -241,6 +243,7 @@ function App() {
           <div>
             <label>방 선택: </label>
             <select onChange={(e) => {
+              // 채팅방 변경 시 관련 정보 재설정
               const selected = e.target.selectedOptions[0];
               const newRoomId = selected.getAttribute("data-roomid");
               const newFromId = selected.getAttribute("data-fromid");
