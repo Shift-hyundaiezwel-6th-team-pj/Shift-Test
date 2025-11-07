@@ -76,22 +76,22 @@ public class ChatController {
 //	            }
 	            break;
 	        case CHAT :
+	        	// 서버로 날아온 메시지를 DB에 저장
 	        	messageService.addMessage(message);
 	        	
 	        	// 직접 목적지를 지정해서 전송
 	        	// convertAndSend : 모든 구독자에게 메시지 브로드캐스트
 	        	
 	        	// 메시지
-	        	// 두 사용자 간의 채팅방 ID를 List로 받아옴 : 결과는 2개 이하
+	        	// 메시지를 받는 사람의 채팅방 ID를 추출하기 위한 로직
 	        	List<Integer> chatrooms = chatroomService.findChatroomIdsForUsers(fromId, toId);
-	        	// 추출된 채팅방 ID가 2개면 보낸 사람의 채팅방 ID를 없애고 받는 사람의 채팅방 ID만 남김
 	        	if (chatrooms.size() > 1) {
 	        		chatrooms.removeIf(id -> id == Integer.parseInt(roomId));
 	        		try {
 	        			// 받는 사람의 채팅방 ID 추출
 	        			String partnerChatroomId = chatrooms.get(0).toString();
 	        			
-	        			// 보낸 사람과 받는 사람의 채팅방 ID로 모두 메시지 전송
+	        			// 최종적으로 보낸 사람과 받는 사람의 채팅방 ID로 모두 메시지 전송
 	        			messagingTemplate.convertAndSend("/sub/messages/" + roomId, message);
 	        			messagingTemplate.convertAndSend("/sub/messages/" + partnerChatroomId, message);
 	        		} catch(Exception e) {
