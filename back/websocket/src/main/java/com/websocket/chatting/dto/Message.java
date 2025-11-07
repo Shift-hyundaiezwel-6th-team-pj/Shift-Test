@@ -11,7 +11,10 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 
@@ -19,6 +22,8 @@ import lombok.ToString;
 @ToString
 @Entity
 @DynamicInsert
+@AllArgsConstructor
+@NoArgsConstructor
 @Table(name="Message")
 public class Message {
 	public enum MessageType {
@@ -34,6 +39,7 @@ public class Message {
     @Setter
     @Column(name = "CONTENT")
     private String content;
+    @Transient //DB와 매핑하지 않는 필드
 	private MessageType type;
     @DateTimeFormat(pattern="yyyy-MM-dd")
     @Column(name = "SENDDATE")
