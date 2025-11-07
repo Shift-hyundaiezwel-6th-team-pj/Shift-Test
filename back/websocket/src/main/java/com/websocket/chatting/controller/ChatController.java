@@ -47,26 +47,20 @@ public class ChatController {
     public Message sendMessage(@DestinationVariable String roomId, @Payload Message message) {
 		log.info("Room [{}] 메시지: {}", roomId, message);
 		
-		Message newMessage = new Message(
-		        message.getChatRoomId(),
-		        message.getFromId(),
-		        message.getContent(),
-		        message.getIsRead()
-		    );	
-		
 		int fromId = message.getFromId();
 		int toId = message.getToId();
-		
 		
 		switch (message.getType()) {
 	        case JOIN :
 	            roomUsers.computeIfAbsent(roomId, k -> new HashSet<>()).add(fromId);
-	            message.setContent("님이 입장하셨습니다.");
+	            message.setContent(fromId + "님이 입장했습니다.");
+	            System.out.println(message.getFromId() + " : " + message.getContent());
 	            break;	
 	        case LEAVE :
 	            Set<Integer> users = roomUsers.get(roomId);
 	            if (users != null) users.remove(fromId);
 	            message.setContent(fromId + "님이 퇴장했습니다.");
+	            System.out.println(message.getFromId() + " : " + message.getContent());
 	
 	            // 방에서 나가는 시점에 임시 저장 메시지를 한 번에 DB로 저장
 //	            List<Message> messagesToSave = unsavedMessages.remove(message.getChatRoomId());
@@ -78,31 +72,32 @@ public class ChatController {
 	        case CHAT :
 	        	// 서버로 날아온 메시지를 DB에 저장
 	        	messageService.addMessage(message);
-	        	
-	        	// 직접 목적지를 지정해서 전송
-	        	// convertAndSend : 모든 구독자에게 메시지 브로드캐스트
-	        	
-	        	// 메시지
-	        	// 메시지를 받는 사람의 채팅방 ID를 추출하기 위한 로직
-	        	List<Integer> chatrooms = chatroomService.findChatroomIdsForUsers(fromId, toId);
-	        	if (chatrooms.size() > 1) {
-	        		chatrooms.removeIf(id -> id == Integer.parseInt(roomId));
-	        		try {
-	        			// 받는 사람의 채팅방 ID 추출
-	        			String partnerChatroomId = chatrooms.get(0).toString();
-	        			
-	        			// 최종적으로 보낸 사람과 받는 사람의 채팅방 ID로 모두 메시지 전송
-	        			messagingTemplate.convertAndSend("/sub/messages/" + roomId, message);
-	        			messagingTemplate.convertAndSend("/sub/messages/" + partnerChatroomId, message);
-	        		} catch(Exception e) {
-	        			e.printStackTrace();
-	        		}
-	        	}
+	        	break;
 	        default :
 	            // DB에 즉시 저장하지 않고, 메모리에 임시 저장
 //	            unsavedMessages.computeIfAbsent(message.getChatRoomId(), k -> new java.util.ArrayList<>())
 //	                           .add(newMessage);
 	            break;
+		}
+		
+		// 직접 목적지를 지정해서 전송
+		// convertAndSend : 모든 구독자에게 메시지 브로드캐스트
+		
+		// 메시지
+		// 메시지를 받는 사람의 채팅방 ID를 추출하기 위한 로직
+		List<Integer> chatrooms = chatroomService.findChatroomIdsForUsers(fromId, toId);
+		if (chatrooms.size() > 1) {
+			chatrooms.removeIf(id -> id == Integer.parseInt(roomId));
+			try {
+				// 받는 사람의 채팅방 ID 추출
+				String partnerChatroomId = chatrooms.get(0).toString();
+				
+				// 최종적으로 보낸 사람과 받는 사람의 채팅방 ID로 모두 메시지 전송
+				messagingTemplate.convertAndSend("/sub/messages/" + roomId, message);
+				messagingTemplate.convertAndSend("/sub/messages/" + partnerChatroomId, message);
+			} catch(Exception e) {
+				e.printStackTrace();
+			}
 		}
 		
         // 접속자 목록
@@ -115,7 +110,6 @@ public class ChatController {
 	// 채팅기록 불러오기
 	@PostMapping("/chatroom/chat-history")
 	public List<Message> getChatHistory(@RequestBody Map<String, Object> payload) {
-		int roomId = Integer.parseInt(payload.get("roomId").toString());
 		int fromId = Integer.parseInt(payload.get("fromId").toString());
 	    int toId = Integer.parseInt(payload.get("toId").toString());
 
@@ -124,7 +118,6 @@ public class ChatController {
 	    List<Message> messages = messageService.getMessagesBetweenUsers(fromId, toId);
 	    log.info("조회된 메시지 수 = {}", messages.size());
 
-	    messagingTemplate.convertAndSend("/sub/messages/" + roomId, messages);
 	    return messages;
 	}
 	
