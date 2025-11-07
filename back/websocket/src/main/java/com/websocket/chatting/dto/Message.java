@@ -36,6 +36,8 @@ public class Message {
     private int chatRoomId;
     @Column(name = "FROMID")
     private int fromId;
+    @Transient
+    private int toId;
     @Setter
     @Column(name = "CONTENT")
     private String content;
