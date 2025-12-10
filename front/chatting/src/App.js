@@ -15,6 +15,10 @@ function App() {
   const [userInfo, setUserInfo] = useState();
   // 입력 중인 채팅 메시지
   const [inputMessage, setInputMessage] = useState("");
+  // 사용자가 참여한 채팅방 목록
+  const [rooms, setRooms] = useState([]);
+  // 사용자 정보
+  const [userInfo, setUserInfo] = useState();
   // 닉네임 입력 상태 (아직 확정되지 않은 값)
   const [nicknameInput, setNicknameInput] = useState("");
   // 확정된 닉네임
@@ -77,12 +81,36 @@ function App() {
     }
   };
 
+  const checkUserInfo = async () => {
+    if (!nicknameInput.trim()) return;
+
+    try {
+      const userInfo = await axios.get(`http://localhost:8080/users/${nicknameInput}`);
+      setNickname(nicknameInput);
+      setUserInfo(userInfo.data)
+      setError("");
+    } catch (err) {
+      if (err.userInfo && err.userInfo.status === 404) {
+        setError("존재하지 않는 사용자입니다.");
+      } else {
+        setError("사용자 PK를 입력하세요.");
+      }
+    }
+
+    try {
+      const userChatRoomInfo = await axios.get(`http://localhost:8080/chatrooms/user/${nicknameInput}`);
+      setRooms(userChatRoomInfo.data);
+    } catch (err) {
+      setError("오류 발생")
+    }
+  };
+
   // roomId 또는 닉네임 변경 시 입장/퇴장 + 구독 처리
   useEffect(() => {
     if (!stompClient || !stompClient.connected) return; // 연결 체크
     if (!nickname) return; // 닉네임 확정 전에는 실행하지 않음
 
-    let chatSub, chatHistory, userSub;
+    let chatSub, userSub;
 
     // 새 채팅방 구독
     chatSub = stompClient.subscribe(`/sub/messages/${roomId}`, (message) => {
@@ -123,7 +151,6 @@ function App() {
     // 언마운트 또는 roomId 변경 시 퇴장 메시지 전송 및 구독 해제
     return () => {
       chatSub && chatSub.unsubscribe();
-      chatHistory && chatHistory.unsubscribe();
       userSub && userSub.unsubscribe();
 
       const leaveMessage = { type: "LEAVE", fromId: fromId, toId: toId, sender: nickname, content: "" };
@@ -160,6 +187,7 @@ function App() {
         body: JSON.stringify(msg),
       });
       setInputMessage(""); // 입력창 초기화
+      console.log(inputMessage);
     }
   };
 
