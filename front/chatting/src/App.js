@@ -9,6 +9,10 @@ function App() {
   const [stompClient, setStompClient] = useState(null);
   // 현재 방에서 수신한 채팅 메시지 배열
   const [receivedMessages, setReceivedMessages] = useState([]);
+  // 사용자가 참여한 채팅방 목록
+  const [rooms, setRooms] = useState([]);
+  // 사용자 정보
+  const [userInfo, setUserInfo] = useState();
   // 입력 중인 채팅 메시지
   const [inputMessage, setInputMessage] = useState("");
   // 사용자가 참여한 채팅방 목록
@@ -20,14 +24,21 @@ function App() {
   // 확정된 닉네임
   const [nickname, setNickname] = useState("");
   // 현재 선택한 방
-  const [roomId, setRoomId] = useState("1");
+  const [roomId, setRoomId] = useState(1);
+  // fromId
+  const [fromId, setFromId] = useState("");
+  // toId
+  const [toId, setToId] = useState("");
   // 현재 방 접속자 목록
   const [users, setUsers] = useState([]);
   // 에러 표시
   const [error, setError] = useState("");
+  // 채팅내역 로딩 상태
+  const [isChatHistoryLoaded, setIsChatHistoryLoaded] = useState(false);
 
   // STOMP 클라이언트 초기화 (앱 시작 시 한 번만)
   useEffect(() => {
+    if (!userInfo) return;
     const socket = new SockJS("http://localhost:8080/ws"); // SockJS 소켓 생성
 
     const client = new Client({
@@ -44,7 +55,31 @@ function App() {
     // 클린업 함수
     // 앱 종료 시 클라이언트 비활성화
     return () => client.deactivate();
-  }, []);
+  }, [userInfo]);
+
+  const checkUserInfo = async () => {
+    if (!nicknameInput.trim()) return;
+
+    try {
+      const userInfo = await axios.get(`http://localhost:8080/users/${nicknameInput}`);
+      setNickname(nicknameInput);
+      setUserInfo(userInfo.data)
+      setError("");
+    } catch (err) {
+      if (err.userInfo && err.userInfo.status === 404) {
+        setError("존재하지 않는 사용자입니다.");
+      } else {
+        setError("사용자 PK를 입력하세요.");
+      }
+    }
+
+    try {
+      const userChatRoomInfo = await axios.get(`http://localhost:8080/chatrooms/user/${nicknameInput}`);
+      setRooms(userChatRoomInfo.data);
+    } catch (err) {
+      setError("오류 발생")
+    }
+  };
 
   const checkUserInfo = async () => {
     if (!nicknameInput.trim()) return;
@@ -89,19 +124,36 @@ function App() {
       setUsers(userList);
     });
 
-    // 입장 메시지 전송
-    const joinMessage = { type: "JOIN", sender: nickname, content: "" };
-    stompClient.publish({
-      destination: `/pub/send/${roomId}`,
-      body: JSON.stringify(joinMessage),
-    });
+    // 채팅방 입장 후 채팅내역 불러옴
+    (async () => {
+      try {
+        // 요청 데이터 구성
+        const chatroomData = {
+          roomId: roomId,
+          fromId:fromId,
+          toId:toId
+        };
+        console.log("요청 데이터:", chatroomData);
+
+        const response = await axios.post("http://localhost:8080/chatroom/chat-history", chatroomData);
+        console.log("응답 데이터:", response.data);
+
+        // 채팅내역 세팅
+        setReceivedMessages((prev) => [ ...response.data, ...prev ]);
+        setIsChatHistoryLoaded(true);
+        
+      } catch (error) {
+        console.error("채팅기록 불러오기 실패:", error);
+        alert("채팅기록을 불러올 수 없습니다.");
+      }
+    })();
 
     // 언마운트 또는 roomId 변경 시 퇴장 메시지 전송 및 구독 해제
     return () => {
       chatSub && chatSub.unsubscribe();
       userSub && userSub.unsubscribe();
 
-      const leaveMessage = { type: "LEAVE", sender: nickname, content: "" };
+      const leaveMessage = { type: "LEAVE", fromId: fromId, toId: toId, sender: nickname, content: "" };
       if (stompClient.connected) { // 연결 여부 다시 체크
         stompClient.publish({
           destination: `/pub/send/${roomId}`,
@@ -111,14 +163,25 @@ function App() {
     };
   }, [roomId, nickname, stompClient]);
 
+  // 채팅내역 불러온 후 입장 메시지 전송
+  useEffect(() => {
+    if (!isChatHistoryLoaded) return;
+    if (!stompClient || !stompClient.connected) return;
+
+    const joinMessage = { type: "JOIN", fromId: fromId, toId: toId, sender: nickname, content: "" };
+    stompClient.publish({
+      destination: `/pub/send/${roomId}`,
+      body: JSON.stringify(joinMessage),
+    });
+
+    setIsChatHistoryLoaded(false);
+  }, [isChatHistoryLoaded]);
+
   // 채팅 메시지 전송
   const sendMessage = () => {
     if (!stompClient || !stompClient.connected) return; // 연결 체크
     if (inputMessage.trim()) {
-      //*************************************************************************************************************** */
-      //*******************************임시로 데이터를 넣은 부분으로 수정 필요******************************************** */
-      const msg = { type: "CHAT", chatRoomId : 1, fromId : nickname, sender: nickname, content: inputMessage, isRead : 'N' };
-      //*************************************************************************************************************** */
+      const msg = { type: "CHAT", chatRoomId : roomId, fromId: fromId, toId: toId, sender: nickname, content: inputMessage, isRead : 'N'};
       stompClient.publish({
         destination: `/pub/send/${roomId}`,
         body: JSON.stringify(msg),
@@ -127,6 +190,57 @@ function App() {
       console.log(inputMessage);
     }
   };
+
+  // 닉네임 확정 버튼
+  // const confirmNickname = () => {
+  //   if (nicknameInput.trim()) {
+  //     setNickname(nicknameInput); // 입력값 확정
+  //   }
+  // };
+
+  /////////////////////////////////////////////////////// 더이상 안쓰는 함수
+  // 채팅 기록 불러오기
+  const getChattingHistory = async (e) => {
+    const selected = e.target.selectedOptions[0]; // 현재 선택된 option
+    const roomId = selected.getAttribute("data-roomId");
+    const fromId = selected.getAttribute("data-fromid");
+    const toId = selected.getAttribute("data-toid");
+
+    setFromId(fromId);
+    setToId(toId);
+    setRoomId(roomId);
+
+    console.log("선택된 채팅방:", fromId, toId);
+
+    setReceivedMessages([]);
+
+    try {
+      const chatroomData = {
+        roomId: roomId,
+        fromId:fromId,
+        toId:toId
+      };
+      console.log("요청 데이터:", chatroomData); 
+      const response = await axios.post("http://localhost:8080/chatroom/chat-history", chatroomData);
+      console.log("응답 데이터:", response.data);
+      setReceivedMessages(response.data);
+
+    } catch (error) {
+      console.error("채팅기록 불러오기 실패:", error);
+      alert("채팅기록을 불러올 수 없습니다.");
+    }
+  }
+
+  // const handleSelectChange = (e) => {
+  //   const selected = e.target.selectedOptions[0]; // 현재 선택된 option
+  //   const fromId = selected.getAttribute("data-fromid");
+  //   const toId = selected.getAttribute("data-toid");
+
+  //   setFromId(fromId);
+  //   setToId(toId);
+
+  //   console.log("선택된 채팅방:", fromId, toId);
+  // };
 
   return (
     <div>
@@ -144,39 +258,82 @@ function App() {
           <button onClick={checkUserInfo}>입장</button>
           {error && <p style={{ color: "red" }}>{error}</p>}
         </div>
+        // <div>
+        //   <input
+        //     type="text"
+        //     placeholder="닉네임 입력"
+        //     value={nicknameInput}
+        //     onChange={(e) => setNicknameInput(e.target.value)}
+        //   />
+        //   <button onClick={() => {
+        //     confirmNickname();
+        //     getChattingHistory(roomId);
+        //   }}>입장</button>
+        // </div>
       )}
 
       {/* 닉네임이 확정되면 채팅 UI 표시 */}
       {userInfo && (
         <>
           <div>
-          <h4>사용자 정보</h4>
-          <p>PK : {userInfo.id}</p>
-          <p>ID : {userInfo.userId}</p>
-          <p>Name : {userInfo.name}</p>
-        </div>
+            <h4>사용자 정보</h4>
+            <p>PK : {userInfo.id}</p>
+            <p>ID : {userInfo.userId}</p>
+            <p>Name : {userInfo.name}</p>
+          </div>
           {/* 방 선택 */}
           <div>
+            <label>방 선택: </label>
+            <select onChange={(e) => {
+              // 채팅방 변경 시 관련 정보 재설정
+              const selected = e.target.selectedOptions[0];
+              const newRoomId = selected.getAttribute("data-roomid");
+              const newFromId = selected.getAttribute("data-fromid");
+              const newToId = selected.getAttribute("data-toid");
+
+              setFromId(newFromId);
+              setToId(newToId);
+              setReceivedMessages([]); // 이전 메시지 초기화
+              setRoomId(newRoomId);
+
+              console.log("선택된 채팅방:", newFromId, newToId);
+            }}>
+              <option value="">채팅방을 선택하세요</option>
+              {rooms.map((room) => (
+                <option
+                  key={room.chatRoomId}
+                  value={room.chatRoomId}
+                  data-fromid={room.fromId}
+                  data-toid={room.toId}
+                  data-roomid={room.id}
+                >
+                  {room.fromId}와 {room.toId}의 채팅방
+                </option>
+              ))}
+            </select>
+          </div>
+          {/* <div>
             <label>방 선택: </label>
             <div
               value={roomId}
               onChange={(e) => {
-                setRoomId(e.target.value); // 방 변경
-                setReceivedMessages([]);   // 메시지 초기화
+                const newRoomId = e.target.value;
+                setRoomId(newRoomId); // 방 변경
+                // setReceivedMessages([]);   // 메시지 초기화
+                getChattingHistory(newRoomId);   // 채팅 내역 불러오기
               }}
             >
               {rooms.map((room) => (
                 <div key={room.chatRoomId}>
-                  <a href="#">
-                    {room.fromId}와 {room.toId}의 채팅방
+                  <a href="#" value={room.id}>
+                    {room.id} : {room.fromId}와 {room.toId}의 채팅방
                   </a>
                   <br />
                 </div>
               ))}
 
-              </div>
-          </div>
-
+              </div> 
+          </div> */}
           {/* 메시지 입력 */}
           <div>
             <input
@@ -192,7 +349,7 @@ function App() {
           <div>
             <p>현재 방 접속자 : &nbsp;
               {users.map((user, idx) => (
-                <span key={idx}>{user} &nbsp;</span>
+                <span key={idx}>{user.id} &nbsp;</span>
               ))}
             </p>
           </div>
@@ -201,9 +358,7 @@ function App() {
           <ul>
             {receivedMessages.map((msg, idx) => (
               <li key={idx}>
-                {msg.type === "CHAT" && <strong>{msg.fromId} : {msg.content}</strong>}
-                {msg.type === "JOIN" && <em>{msg.fromId} {msg.content}</em>}
-                {msg.type === "LEAVE" && <em>{msg.content}</em>}
+                {msg.content}
               </li>
             ))}
           </ul>
