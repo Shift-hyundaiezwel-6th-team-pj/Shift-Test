@@ -16,7 +16,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns(
                 		"http://localhost:3000",
-                		"http://123.123.123.123"
+                		"http://123.123.123.234"
                 		)
                 .withSockJS();
     }
